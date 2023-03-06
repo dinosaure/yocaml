@@ -86,8 +86,9 @@ val apply_as_template
   :  (module Metadata.INJECTABLE with type t = 'a)
   -> (module Metadata.RENDERABLE)
   -> ?strict:bool
+  -> 'a * string
   -> Filepath.t
-  -> ('a * string, 'a * string) t
+  -> (unit, 'a * string) t Effect.t
 
 (** When a template should be applied without body. *)
 val without_body : 'a -> 'a * string

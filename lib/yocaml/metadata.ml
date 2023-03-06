@@ -14,6 +14,12 @@ module type RENDERABLE = sig
 
   val to_string : ?strict:bool -> (string * t) list -> string -> string
 
+  val dependencies
+    :  ?strict:bool
+    -> (string * t) list
+    -> string
+    -> string list
+
   include Key_value.DESCRIBABLE with type t := t
 end
 

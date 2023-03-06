@@ -1,6 +1,8 @@
 module Renderable = struct
   include Yocaml.Key_value.Jsonm_descriptor
 
+  let dependencies ?strict:_ _variables _tpl = []
+
   let to_string ?(strict = true) variables tpl =
     let layout = Mustache.of_string tpl in
     Mustache.render ~strict layout (`O variables)

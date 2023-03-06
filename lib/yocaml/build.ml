@@ -175,16 +175,28 @@ let apply_as_template
   (module I : Metadata.INJECTABLE with type t = a)
   (module R : Metadata.RENDERABLE)
   ?(strict = true)
+  (obj, content)
   template
   =
-  let piped = Preface.(Fun.flip Pair.( & ) ()) in
-  let action ((obj, content), tpl_content) =
+  let action (obj, content) : (Deps.t * (a * string)) Effect.t =
+    let arrow = read_file template in
     let values = I.inject (module R) obj in
     let variables = ("body", R.string content) :: values in
-    try Effect.return (obj, R.to_string ~strict variables tpl_content) with
-    | e -> Effect.raise_ e
+    let open Effect in
+    let+ tpl_content = (get_task arrow) () in
+    let deps =
+      Deps.Monoid.combine
+        (get_dependencies arrow)
+        (R.dependencies ~strict variables tpl_content
+        |> List.map
+             (Preface.Fun.compose_right_to_left Deps.singleton Deps.file)
+        |> Deps.Monoid.reduce)
+    in
+    deps, (obj, R.to_string ~strict variables tpl_content)
   in
-  piped ^>> snd (read_file template) >>> lift_task action
+  let open Effect in
+  let+ deps, (_obj, result) = action (obj, content) in
+  make deps (fun () -> return (obj, result))
 ;;
 
 let without_body x = x, ""
