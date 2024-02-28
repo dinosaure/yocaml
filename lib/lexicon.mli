@@ -14,11 +14,12 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-module Csexp = Csexp
-module Path = Path
-module Cache = Cache
-module Eff = Eff
-module Deps = Deps
-module Task = Task
-module Pipeline = Pipeline
-module Action = Action
+(** An internal module to centralize logs propagated by the application. *)
+
+val target_already_up_to_date : Path.t -> unit Eff.t
+val target_exists : Path.t -> unit Eff.t
+val target_need_to_be_built : Path.t -> unit Eff.t
+val target_is_written : Path.t -> unit Eff.t
+val target_was_written : Path.t -> unit Eff.t
+val target_hash_is_unchanged : Path.t -> unit Eff.t
+val target_hash_is_changed : Path.t -> unit Eff.t
