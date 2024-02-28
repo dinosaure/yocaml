@@ -55,7 +55,8 @@ let rec pp_item ppf = function
       Format.fprintf ppf "└─⟢ %s (mtime: %d) -> \"%s\"" (name f) (mtime f)
         (content f)
   | Dir d ->
-      Format.fprintf ppf "└─⟤ %s/@[<v -10>@;%a@]" (name d)
+      Format.fprintf ppf "└─⟤ %s (mtime: %d) /@[<v -10>@;%a@]" (name d)
+        (mtime d)
         (Format.pp_print_list pp_item)
         (content d)
 
@@ -130,14 +131,18 @@ let rename name = function
   | File f -> File { f with name }
   | Dir d -> Dir { d with name }
 
-type trace = { mutable system : t; mutable execution_trace : string list }
+type trace = { system : t; execution_trace : string list; time : int }
 
-let system { system; _ } = system
-let execution_trace { execution_trace; _ } = execution_trace |> List.rev
-let create_trace system = { system; execution_trace = [] }
+let trace_system { system; _ } = system
+let trace_execution { execution_trace; _ } = execution_trace |> List.rev
+let trace_time { time; _ } = time
+let create_trace ?(time = 0) system = { system; execution_trace = []; time }
 
 let push_trace trace action =
   { trace with execution_trace = action :: trace.execution_trace }
+
+let update_system trace system = { trace with system }
+let update_time trace amount = { trace with time = trace.time + amount }
 
 let push_log trace level message =
   let level =
@@ -166,6 +171,22 @@ let push_mtime trace on path =
   push_trace trace
   @@ Format.asprintf "[MTIME][%a]%a" on_pp on Yocaml.Path.pp path
 
+let push_hash_content trace content =
+  push_trace trace @@ Format.asprintf "[HASH][%s]" content
+
+let push_write_file trace on path content =
+  push_trace trace
+  @@ Format.asprintf "[WRITE_FILE][%a][%a]%s" on_pp on Yocaml.Path.pp path
+       content
+
+type _ Effect.t += Yocaml_test_increase_time : int -> unit Effect.t
+
+let increase_time amount =
+  Yocaml.Eff.perform @@ Yocaml_test_increase_time amount
+
+let increase_time_with amount cache =
+  Yocaml.Eff.(increase_time amount >>= Fun.const @@ return cache)
+
 let run ~trace program input =
   let handler =
     let trace = ref trace in
@@ -177,6 +198,13 @@ let run ~trace program input =
           (fun (type a) (eff : a Effect.t) ->
             let open Yocaml.Eff in
             match eff with
+            | Yocaml_test_increase_time amount ->
+                Some
+                  (fun (k : (a, _) continuation) ->
+                    (* We do not track the execution here because it is not
+                       revelant for tests. *)
+                    let () = trace := update_time !trace amount in
+                    continue k ())
             | Yocaml_failwith exn -> Some (fun _ -> Stdlib.raise exn)
             | Yocaml_log (level, message) ->
                 Some
@@ -190,14 +218,14 @@ let run ~trace program input =
                     let path = Yocaml.Path.to_list path in
                     let ex = Option.is_some @@ get !trace.system path in
                     continue k ex)
-            | Yocaml_read_file (on, path) ->
+            | Yocaml_read_file (on, gpath) ->
                 Some
                   (fun (k : (a, _) continuation) ->
-                    let () = trace := push_read_file !trace on path in
-                    let path = Yocaml.Path.to_list path in
+                    let () = trace := push_read_file !trace on gpath in
+                    let path = Yocaml.Path.to_list gpath in
                     match get !trace.system path with
                     | Some (File { content; _ }) -> continue k content
-                    | _ -> continue k "")
+                    | _ -> Stdlib.raise @@ Yocaml.Eff.File_not_exists gpath)
             | Yocaml_get_mtime (on, path) ->
                 Some
                   (fun (k : (a, _) continuation) ->
@@ -207,6 +235,25 @@ let run ~trace program input =
                     | Some (File { mtime; _ } | Dir { mtime; _ }) ->
                         continue k mtime
                     | _ -> continue k 0)
+            | Yocaml_hash_content content ->
+                Some
+                  (fun (k : (a, _) continuation) ->
+                    let () = trace := push_hash_content !trace content in
+                    (* We do not really hash the content since we are working on very
+                       small file content. *)
+                    continue k ("H:" ^ content))
+            | Yocaml_write_file (on, gpath, content) ->
+                Some
+                  (fun (k : (a, _) continuation) ->
+                    let () = trace := push_write_file !trace on gpath content in
+                    let path = Yocaml.Path.to_list gpath in
+                    let new_fs =
+                      update !trace.system path (fun ~target ~previous_item:_ ->
+                          let mtime = !trace.time in
+                          Some (file ~mtime target content))
+                    in
+                    let () = trace := update_system !trace new_fs in
+                    continue k ())
             | _ -> None)
       }
   in

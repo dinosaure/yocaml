@@ -14,6 +14,8 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
+type t = Cache.t -> Cache.t Eff.t
+
 let perform_writing cache target fc hc =
   let open Eff.Syntax in
   let* () = Lexicon.target_is_written target in
@@ -21,7 +23,7 @@ let perform_writing cache target fc hc =
   let+ () = Lexicon.target_was_written target in
   Cache.update cache target hc
 
-let write_file cache target task =
+let write_file target task cache =
   let open Eff.Syntax in
   let deps, eff = Task.destruct task in
   let* interaction = Deps.need_update deps target in
@@ -46,10 +48,10 @@ let write_file cache target task =
           let* () = Lexicon.target_hash_is_changed target in
           perform_writing cache target fc hc)
 
-let copy_file ?new_name ~into cache path =
+let copy_file ?new_name ~into path cache =
   match Path.basename path with
   | None -> Eff.raise @@ Eff.Invalid_path path
   | Some fragment ->
       let name = Option.value ~default:fragment new_name in
       let dest = Path.(into / name) in
-      write_file cache dest (Pipeline.read_file path)
+      write_file dest (Pipeline.read_file path) cache
