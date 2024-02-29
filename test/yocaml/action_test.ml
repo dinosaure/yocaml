@@ -114,7 +114,7 @@ let test_action_create_file_2 =
   let open Alcotest in
   test_case
     "test of a complete action exection - updating one file and producing new \
-     files"
+     files. Since the cache is empty, it has to rewrite everything."
     `Quick (fun () ->
       let open Yocaml.Path.Infix in
       let base_file_system =
@@ -210,12 +210,12 @@ let test_action_create_file_2 =
                     ; file ~mtime:5 "about.html" "about page"
                     ; dir ~mtime:5 "js"
                         [ file ~mtime:5 "client.js" "js client" ]
-                    ; dir ~mtime:1 "css"
-                        [ file ~mtime:1 "style.css" "stylesheet" ]
-                    ; dir ~mtime:1 "images"
+                    ; dir ~mtime:5 "css"
+                        [ file ~mtime:5 "style.css" "stylesheet" ]
+                    ; dir ~mtime:5 "images"
                         [
-                          file ~mtime:1 "ocaml.png" "ocaml-logo"
-                        ; file ~mtime:1 "yocaml.svg" "yocaml-logo"
+                          file ~mtime:5 "ocaml.png" "ocaml-logo"
+                        ; file ~mtime:5 "yocaml.svg" "yocaml-logo"
                         ]
                     ]
                 ]
@@ -319,10 +319,229 @@ let test_action_create_file_3 =
       let computed_file_system = Fs.trace_system trace in
       check Testable.fs "should be equal" base_file_system computed_file_system)
 
+let test_action_with_dynamic_dependencies_1 =
+  let open Alcotest in
+  test_case "an example using dynamic dependencies - 1" `Quick (fun () ->
+      let open Yocaml.Path.Infix in
+      let base_file_system =
+        Fs.(
+          from_list
+            [
+              dir "."
+                [
+                  dir "includes"
+                    [ file "a.txt" "a"; file "b.txt" "b"; file "c.txt" "c" ]
+                ; file "index.txt" "a.txt;b.txt;c.txt"
+                ]
+            ])
+      in
+      let program cache =
+        let open Yocaml in
+        let open Task in
+        let t =
+          Pipeline.read_file ~/[ "index.txt" ] >>* fun content ->
+          let open Eff in
+          let files =
+            content
+            |> String.split_on_char ';'
+            |> Stdlib.List.map (fun file -> ~/[ "includes" ] / file)
+          in
+          let* content = List.traverse (read_file ~on:`Source) files in
+          return (content |> String.concat "", Deps.from_list files)
+        in
+
+        Eff.(return cache >>= Action.write_file ~/[ "_build"; "index.txt" ] t)
+      in
+      let trace = Fs.create_trace ~time:2 base_file_system in
+      let cache = Yocaml.Cache.empty in
+      let trace, cache = Fs.run ~trace program cache in
+      let computed_file_system = Fs.trace_system trace in
+      let expected_file_system =
+        Fs.(
+          from_list
+            [
+              dir "."
+                [
+                  dir "_build" ~mtime:2 [ file "index.txt" ~mtime:2 "abc" ]
+                ; dir "includes"
+                    [ file "a.txt" "a"; file "b.txt" "b"; file "c.txt" "c" ]
+                ; file "index.txt" "a.txt;b.txt;c.txt"
+                ]
+            ])
+      in
+      let () =
+        check Testable.cache "should be equal"
+          Yocaml.Cache.(
+            from_list
+              [
+                ( ~/[ "_build"; "index.txt" ]
+                , entry "H:abc"
+                  @@ Yocaml.Deps.from_list
+                       [
+                         ~/[ "includes"; "a.txt" ]
+                       ; ~/[ "includes"; "b.txt" ]
+                       ; ~/[ "includes"; "c.txt" ]
+                       ] )
+              ])
+          cache
+      in
+      let () =
+        check Testable.fs "should be equal" expected_file_system
+          computed_file_system
+      in
+      let trace = Fs.create_trace ~time:5 computed_file_system in
+      let trace, cache = Fs.run ~trace program cache in
+      let computed_file_system = Fs.trace_system trace in
+      let () =
+        check Testable.fs "should be equal" expected_file_system
+          computed_file_system
+      in
+      let base_file_system =
+        Fs.(
+          from_list
+            [
+              dir "."
+                [
+                  dir "_build" ~mtime:2 [ file "index.txt" ~mtime:2 "abc" ]
+                ; dir "includes"
+                    [
+                      file "a.txt" "a"
+                    ; file "b.txt" "b"
+                    ; file ~mtime:3 "c.txt" "c"
+                    ]
+                ; file "index.txt" "a.txt;b.txt;c.txt"
+                ]
+            ])
+      in
+      let trace = Fs.create_trace ~time:2 base_file_system in
+      let trace, cache = Fs.run ~trace program cache in
+      let computed_file_system = Fs.trace_system trace in
+      let expected_file_system =
+        Fs.(
+          from_list
+            [
+              dir "."
+                [
+                  dir "_build" ~mtime:2 [ file "index.txt" ~mtime:2 "abc" ]
+                ; dir "includes"
+                    [
+                      file "a.txt" "a"
+                    ; file "b.txt" "b"
+                    ; file ~mtime:3 "c.txt" "c"
+                    ]
+                ; file "index.txt" "a.txt;b.txt;c.txt"
+                ]
+            ])
+      in
+      let () =
+        check Testable.fs "should be equal" expected_file_system
+          computed_file_system
+      in
+      let trace = Fs.create_trace ~time:10 computed_file_system in
+      let trace, cache = Fs.run ~trace program cache in
+      let computed_file_system = Fs.trace_system trace in
+      let () =
+        check Testable.fs "should be equal" expected_file_system
+          computed_file_system
+      in
+      let base_file_system =
+        Fs.(
+          from_list
+            [
+              dir "."
+                [
+                  dir "_build" ~mtime:2 [ file "index.txt" ~mtime:2 "abc" ]
+                ; dir "includes"
+                    [
+                      file "a.txt" "a"
+                    ; file "b.txt" "b"
+                    ; file ~mtime:3 "c.txt" "c"
+                    ]
+                ; file "index.txt" "a.txt;b.txt;c.txt"
+                ]
+            ])
+      in
+      let trace = Fs.create_trace ~time:2 base_file_system in
+      let trace, cache = Fs.run ~trace program cache in
+      let computed_file_system = Fs.trace_system trace in
+      let expected_file_system =
+        Fs.(
+          from_list
+            [
+              dir "."
+                [
+                  dir "_build" ~mtime:2 [ file "index.txt" ~mtime:2 "abc" ]
+                ; dir "includes"
+                    [
+                      file "a.txt" "a"
+                    ; file "b.txt" "b"
+                    ; file ~mtime:3 "c.txt" "c"
+                    ]
+                ; file "index.txt" "a.txt;b.txt;c.txt"
+                ]
+            ])
+      in
+      let () =
+        check Testable.fs "should be equal" expected_file_system
+          computed_file_system
+      in
+      let trace = Fs.create_trace ~time:10 computed_file_system in
+      let trace, cache = Fs.run ~trace program cache in
+      let computed_file_system = Fs.trace_system trace in
+      let () =
+        check Testable.fs "should be equal" expected_file_system
+          computed_file_system
+      in
+      let base_file_system =
+        Fs.(
+          from_list
+            [
+              dir "."
+                [
+                  dir "_build" ~mtime:2 [ file "index.txt" ~mtime:2 "abc" ]
+                ; dir "includes"
+                    [
+                      file "a.txt" "a"
+                    ; file "b.txt" "b"
+                    ; file ~mtime:5 "c.txt" "d"
+                    ]
+                ; file "index.txt" "a.txt;b.txt;c.txt"
+                ]
+            ])
+      in
+      let trace = Fs.create_trace ~time:10 base_file_system in
+      let trace, _cache = Fs.run ~trace program cache in
+      let computed_file_system = Fs.trace_system trace in
+      let expected_file_system =
+        Fs.(
+          from_list
+            [
+              dir "."
+                [
+                  dir "_build" ~mtime:10 [ file "index.txt" ~mtime:10 "abd" ]
+                ; dir "includes"
+                    [
+                      file "a.txt" "a"
+                    ; file "b.txt" "b"
+                    ; file ~mtime:5 "c.txt" "d"
+                    ]
+                ; file "index.txt" "a.txt;b.txt;c.txt"
+                ]
+            ])
+      in
+
+      let () =
+        check Testable.fs "should be equal" expected_file_system
+          computed_file_system
+      in
+
+      ())
+
 let cases =
   ( "Yocaml.Action"
   , [
       test_action_create_file_1
     ; test_action_create_file_2
     ; test_action_create_file_3
+    ; test_action_with_dynamic_dependencies_1
     ] )
