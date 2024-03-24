@@ -15,6 +15,8 @@
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
 module Csexp = Csexp
+module Data = Data
+module Nel = Nel
 module Path = Path
 module Cache = Cache
 module Eff = Eff
