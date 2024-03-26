@@ -16,7 +16,8 @@
 
 (** Generators for use with {{:https://ocaml.org/p/qcheck/latest} QCheck2} *)
 
-val csexp : Yocaml.Csexp.t QCheck2.Gen.t
+val csexp : Yocaml.Sexp.t QCheck2.Gen.t
+val sexp : Yocaml.Sexp.t QCheck2.Gen.t
 val path : Yocaml.Path.t QCheck2.Gen.t
 val deps : Yocaml.Deps.t QCheck2.Gen.t
 val cache_entry : Yocaml.Cache.entry QCheck2.Gen.t

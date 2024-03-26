@@ -16,8 +16,22 @@
 
 let csexp =
   let open QCheck2.Gen in
-  let atom = small_string ~gen:printable |> map Yocaml.Csexp.atom in
-  let node self n = small_list (self (n / 10)) |> map Yocaml.Csexp.node in
+  let atom = small_string ~gen:printable |> map Yocaml.Sexp.atom in
+  let node self n = small_list (self (n / 10)) |> map Yocaml.Sexp.node in
+  fix (fun self -> function
+    | 0 -> atom | n -> frequency [ (1, atom); (5, node self n) ])
+  |> sized
+
+let alphanumeric =
+  let open QCheck2.Gen in
+  oneof [ char_range 'a' 'z'; char_range 'A' 'Z'; char_range '0' '9' ]
+
+let sexp =
+  let open QCheck2.Gen in
+  let atom =
+    string_size ~gen:alphanumeric (int_range 1 100) |> map Yocaml.Sexp.atom
+  in
+  let node self n = small_list (self (n / 10)) |> map Yocaml.Sexp.node in
   fix (fun self -> function
     | 0 -> atom | n -> frequency [ (1, atom); (5, node self n) ])
   |> sized

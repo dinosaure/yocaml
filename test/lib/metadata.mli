@@ -14,15 +14,19 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-module Sexp = Sexp
-module Data = Data
-module Nel = Nel
-module Path = Path
-module Cache = Cache
-module Eff = Eff
-module Deps = Deps
-module Task = Task
-module Pipeline = Pipeline
-module Action = Action
-module Required = Required
-module Metadata = Metadata
+(** Some metadata for testing purpose. *)
+
+module Dummy : sig
+  type t = {
+      name : string
+    ; age : int
+    ; nouns : string list
+    ; is_fun : bool option
+  }
+
+  include Yocaml.Required.DATA_READABLE with type t := t
+
+  val equal : t -> t -> bool
+  val pp : t Fmt.t
+  val testable : t Alcotest.testable
+end
