@@ -14,17 +14,4 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-let track_files list = Task.make (Deps.from_list list) Eff.return
-let track_file file = track_files [ file ]
-
-let read_file file =
-  Task.make (Deps.singleton file) (fun () -> Eff.read_file ~on:`Source file)
-
-let read_file_with_metadata (type a) (module P : Required.DATA_PROVIDER)
-    (module R : Required.DATA_READABLE with type t = a) ?extraction_strategy
-    file =
-  Task.make (Deps.singleton file) (fun () ->
-      Eff.read_file_with_metadata
-        (module P)
-        (module R)
-        ?extraction_strategy ~on:`Source file)
+include Yocaml.Required.RUNTIME with type 'a t = 'a

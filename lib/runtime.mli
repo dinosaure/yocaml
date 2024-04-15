@@ -14,17 +14,16 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-let track_files list = Task.make (Deps.from_list list) Eff.return
-let track_file file = track_files [ file ]
+(** A Runtime is an execution context (ie, Unix or Git). They describe the entry
+    point of a YOCaml program and abstract the file system. *)
 
-let read_file file =
-  Task.make (Deps.singleton file) (fun () -> Eff.read_file ~on:`Source file)
+module Make (Runtime : Required.RUNTIME) : sig
+  (** Builds a concrete Runtime. *)
 
-let read_file_with_metadata (type a) (module P : Required.DATA_PROVIDER)
-    (module R : Required.DATA_READABLE with type t = a) ?extraction_strategy
-    file =
-  Task.make (Deps.singleton file) (fun () ->
-      Eff.read_file_with_metadata
-        (module P)
-        (module R)
-        ?extraction_strategy ~on:`Source file)
+  val run :
+       ?custom_error_handler:
+         (Format.formatter -> Data.Validation.custom_error -> unit)
+    -> (unit -> unit Eff.t)
+    -> unit Runtime.t
+  (** Runs a YOCaml program (and interprets its effects, youhou). *)
+end

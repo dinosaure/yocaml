@@ -14,7 +14,6 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-module Sexp = Sexp
 module Data = Data
 module Nel = Nel
 module Path = Path
@@ -26,3 +25,11 @@ module Pipeline = Pipeline
 module Action = Action
 module Required = Required
 module Metadata = Metadata
+module Diagnostic = Diagnostic
+
+module Sexp = struct
+  include Sexp
+  module Provider = Sexp_provider
+end
+
+module Runtime = Runtime

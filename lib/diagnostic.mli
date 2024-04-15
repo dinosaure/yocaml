@@ -14,17 +14,18 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-let track_files list = Task.make (Deps.from_list list) Eff.return
-let track_file file = track_files [ file ]
+(** Tools for building error diagnostics. These are essentially pretty-printers
+    for exceptions propagated by the {!module:Yocaml.Eff} module. *)
 
-let read_file file =
-  Task.make (Deps.singleton file) (fun () -> Eff.read_file ~on:`Source file)
+val exception_to_diagnostic :
+     ?custom_error:(Format.formatter -> Data.Validation.custom_error -> unit)
+  -> ?in_exception_handler:bool
+  -> Format.formatter
+  -> exn
+  -> unit
+(** A pretty printer that tries to return exceptions in the form of diagnostics
+    (a string describing the error). *)
 
-let read_file_with_metadata (type a) (module P : Required.DATA_PROVIDER)
-    (module R : Required.DATA_READABLE with type t = a) ?extraction_strategy
-    file =
-  Task.make (Deps.singleton file) (fun () ->
-      Eff.read_file_with_metadata
-        (module P)
-        (module R)
-        ?extraction_strategy ~on:`Source file)
+val runtime_error_to_diagnostic : Format.formatter -> string -> unit
+(** Uses the same representation as an exception diagnostic to visually render
+    an error message produced by the runtime. *)

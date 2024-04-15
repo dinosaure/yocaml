@@ -14,17 +14,17 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-let track_files list = Task.make (Deps.from_list list) Eff.return
-let track_file file = track_files [ file ]
+(** Unix runtime for YOCaml.
 
-let read_file file =
-  Task.make (Deps.singleton file) (fun () -> Eff.read_file ~on:`Source file)
+    Allows you to run YOCaml on a Unix system (or source service for more
+    complex runtimes). *)
 
-let read_file_with_metadata (type a) (module P : Required.DATA_PROVIDER)
-    (module R : Required.DATA_READABLE with type t = a) ?extraction_strategy
-    file =
-  Task.make (Deps.singleton file) (fun () ->
-      Eff.read_file_with_metadata
-        (module P)
-        (module R)
-        ?extraction_strategy ~on:`Source file)
+val run :
+     ?level:Logs.level
+  -> ?custom_error_handler:
+       (Format.formatter -> Yocaml.Data.Validation.custom_error -> unit)
+  -> (unit -> unit Yocaml.Eff.t)
+  -> unit
+(** [run ?level ?custom_error_handler program] Runs a Yocaml program in the Unix
+    runtime. The log [level] (default: [Debug]) and a [custom_error_handler] can
+    be passed as arguments to change the reporting level.*)
