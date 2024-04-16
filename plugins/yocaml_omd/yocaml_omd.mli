@@ -14,17 +14,15 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-let track_files list = Task.make (Deps.from_list list) Eff.return
-let track_file file = track_files [ file ]
+(** Allows you to use [OMD](https://ocaml.org/p/omd/latest) to use
+    [Markdown](https://en.wikipedia.org/wiki/Markdown) as a markup language.
+    Historically, the package was named [yocaml_markdown] but was renamed
+    [yocaml_omd] to support multiple Markdown parsers. *)
 
-let read_file file =
-  Task.make (Deps.singleton file) (fun () -> Eff.read_file ~on:`Source file)
+val to_html : (string, string) Yocaml.Task.t
+(** [to_html] is an arrow that uses [OMD] to convert [Markdown] to [HTML]. *)
 
-let read_file_with_metadata (type a) (module P : Required.DATA_PROVIDER)
-    (module R : Required.DATA_READABLE with type t = a) ?extraction_strategy
-    path =
-  Task.make (Deps.singleton path) (fun () ->
-      Eff.read_file_with_metadata
-        (module P)
-        (module R)
-        ?extraction_strategy ~on:`Source path)
+val content_to_html : unit -> ('a * string, 'a * string) Yocaml.Task.t
+(** [content_to_html] is an arrow that uses [OMD] to convert the content of a
+    file from [Markdown] to [HTML]. (Since we usually read a file with metadata
+    as a pair of metadata and string). *)

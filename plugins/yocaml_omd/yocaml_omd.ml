@@ -14,17 +14,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-let track_files list = Task.make (Deps.from_list list) Eff.return
-let track_file file = track_files [ file ]
+let to_html =
+  Yocaml.Task.lift (fun content -> content |> Omd.of_string |> Omd.to_html)
 
-let read_file file =
-  Task.make (Deps.singleton file) (fun () -> Eff.read_file ~on:`Source file)
-
-let read_file_with_metadata (type a) (module P : Required.DATA_PROVIDER)
-    (module R : Required.DATA_READABLE with type t = a) ?extraction_strategy
-    path =
-  Task.make (Deps.singleton path) (fun () ->
-      Eff.read_file_with_metadata
-        (module P)
-        (module R)
-        ?extraction_strategy ~on:`Source path)
+let content_to_html () = Yocaml.Task.second to_html
