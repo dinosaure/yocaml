@@ -25,6 +25,7 @@ type 'a ct = (unit, 'a) t
 let make dependencies action =
   { dependencies; action; has_dynamic_dependencies = true }
 
+let from_effect action = make Deps.empty action
 let dependencies_of { dependencies; _ } = dependencies
 let action_of { action; _ } = action
 
@@ -157,6 +158,13 @@ let no_dynamic_deps t =
   rcompose
     { t with has_dynamic_dependencies = false }
     (lift (fun x -> (x, Deps.empty)))
+
+let drop_first () = lift Stdlib.snd
+let drop_second () = lift Stdlib.fst
+
+let with_dynamic_dependencies files =
+  let set = Deps.from_list files in
+  lift (fun x -> (x, set))
 
 module Infix = struct
   let ( <<< ) = compose
