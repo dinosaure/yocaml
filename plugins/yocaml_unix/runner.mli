@@ -14,24 +14,9 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-module Data = Data
-module Nel = Nel
-module Path = Path
-module Cache = Cache
-module Eff = Eff
-module Deps = Deps
-module Task = Task
-module Pipeline = Pipeline
-module Action = Action
-module Required = Required
-module Metadata = Metadata
-module Archetype = Archetype
-module Diagnostic = Diagnostic
-module Reader = Reader
+(** A runner for executing Yocaml programs in the Unix context. *)
 
-module Sexp = struct
-  include Sexp
-  module Provider = Sexp_provider
-end
-
-module Runtime = Runtime
+include
+  Yocaml.Required.RUNNER
+    with type 'a t := 'a Yocaml.Eff.t
+     and module Runtime := Runtime

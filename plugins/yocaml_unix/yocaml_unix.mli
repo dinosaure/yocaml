@@ -28,3 +28,14 @@ val run :
 (** [run ?level ?custom_error_handler program] Runs a Yocaml program in the Unix
     runtime. The log [level] (default: [Debug]) and a [custom_error_handler] can
     be passed as arguments to change the reporting level.*)
+
+val serve :
+     ?level:Logs.level
+  -> ?custom_error_handler:
+       (Format.formatter -> Yocaml.Data.Validation.custom_error -> unit)
+  -> target:Yocaml.Path.t
+  -> port:int
+  -> (unit -> unit Yocaml.Eff.t)
+  -> 'a
+(** [serve ?level ?custom_error_handler ~target ~port program] serve the
+    directory [target] statically and re-run [program] on each refresh. *)
