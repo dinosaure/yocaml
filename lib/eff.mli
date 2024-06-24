@@ -156,6 +156,10 @@ module List : sig
 
   val filter_map : ('a -> 'b option t) -> 'a list -> 'b list t
   (** [filter_map] that acts on effectful predicates. *)
+
+  val fold_left : ('acc t -> 'a -> 'acc t) -> 'acc t -> 'a t list -> 'acc t
+  (** [fold_left f default l] apply [f] on each value of [l], accumulating into
+      [default]. *)
 end
 
 (** {2 Infix operators}
@@ -256,6 +260,8 @@ type _ Effect.t +=
         (** Effect that returns a list of names of files (and directory) present
             in the given directory. (Names should be not prefixed by the given
             path). *)
+  | Yocaml_create_dir : filesystem * Path.t -> unit Effect.t
+        (** Effect that create a directory. *)
 
 val perform : 'a Effect.t -> 'a t
 (** [perform effect] colours an effect performance as impure. Replaces
@@ -278,6 +284,9 @@ exception Invalid_path of filesystem * Path.t
 
 exception File_is_a_directory of filesystem * Path.t
 (** Exception raised when we try to use a directory as a regular file. *)
+
+exception Directory_is_a_file of filesystem * Path.t
+(** Exception raised when we try to use a file as a directory. *)
 
 exception Directory_not_exists of filesystem * Path.t
 (** Exception raised when we try to use a directory as a regular file. *)
@@ -344,9 +353,15 @@ val mtime : on:filesystem -> Path.t -> int t
 val hash : string -> string t
 (** [hash str] perform the effect [Yocaml_hash_content] on a given string. *)
 
+val create_directory : on:filesystem -> Path.t -> unit t
+(** [create_directory ~on target] performs recursively [Yocaml_create_dir] to
+    create a directory. *)
+
 val write_file : on:filesystem -> Path.t -> string -> unit t
 (** [write_file ~on target content] performs the effect [Yocaml_write_file] that
-    should writes a file to a given target. *)
+    should writes a file to a given target. The function use
+    {!val:Yocaml.Eff.create_directory} for creating intermediate directory in
+    the path. *)
 
 val is_directory : on:filesystem -> Path.t -> bool t
 (** [is_directory ~on target] performs the effect [Yocaml_is_directory] that
@@ -365,3 +380,11 @@ val read_directory :
 (** [read_directory ~on ?only ?where path] returns a list of children (as a pair
     of the full path and the name ([fragment]) of the child) of the given
     directory, performing [Yocaml_read_dir]. *)
+
+val copy_recursive : ?new_name:Path.fragment -> into:Path.t -> Path.t -> unit t
+(** [copy_recursive ~on path] copy (recursively) a directory or a file into
+    another one. *)
+
+val get_basename : Path.t -> Path.fragment t
+(** [get_basename path] returns the basename of a path (and fail if the path has
+    no basename). *)

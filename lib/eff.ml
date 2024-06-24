@@ -50,7 +50,7 @@ module List = struct
   let traverse f l =
     let rec aux acc = function
       | [] -> map Stdlib.List.rev acc
-      | x :: xs -> aux (map2 Stdlib.List.cons (f x) acc) xs
+      | x :: xs -> (aux [@tailcall]) (map2 Stdlib.List.cons (f x) acc) xs
     in
     aux (return []) l
 
@@ -66,6 +66,13 @@ module List = struct
           @@ f x
     in
     aux [] l
+
+  let fold_left f default list =
+    let rec aux acc = function
+      | [] -> acc
+      | x :: xs -> (aux [@tailcall]) (bind (fun m -> f acc m) x) xs
+    in
+    aux default list
 end
 
 module Infix = struct
@@ -103,6 +110,7 @@ type _ Effect.t +=
   | Yocaml_write_file : filesystem * Path.t * string -> unit Effect.t
   | Yocaml_is_directory : filesystem * Path.t -> bool Effect.t
   | Yocaml_read_dir : filesystem * Path.t -> Path.fragment list Effect.t
+  | Yocaml_create_dir : filesystem * Path.t -> unit Effect.t
 
 let perform raw_effect = return @@ Effect.perform raw_effect
 
@@ -112,6 +120,7 @@ let run handler arrow input =
 exception File_not_exists of filesystem * Path.t
 exception Invalid_path of filesystem * Path.t
 exception File_is_a_directory of filesystem * Path.t
+exception Directory_is_a_file of filesystem * Path.t
 exception Directory_not_exists of filesystem * Path.t
 exception Provider_error of Required.provider_error
 
@@ -123,8 +132,11 @@ let logf ?(level = `Debug) = Format.kasprintf (fun result -> log ~level result)
 let is_directory ~on path = perform @@ Yocaml_is_directory (on, path)
 
 let is_file ~on path =
-  let+ is_dir = is_directory ~on path in
-  not is_dir
+  let* file_exists = file_exists ~on path in
+  if file_exists then
+    let+ is_dir = is_directory ~on path in
+    not is_dir
+  else return false
 
 let ensure_file_exists ~on f path =
   let* exists = file_exists ~on path in
@@ -154,7 +166,23 @@ let get_mtime ~on =
 
 let hash str = perform @@ Yocaml_hash_content str
 
+let create_directory ~on path =
+  let rec aux path =
+    let* is_file = is_file ~on path in
+    if is_file then raise (Directory_is_a_file (on, path))
+    else
+      let* is_directory = is_directory ~on path in
+      if not is_directory then
+        let parent = Path.dirname path in
+        let* () = aux parent in
+        perform @@ Yocaml_create_dir (on, path)
+      else return ()
+  in
+  aux path
+
 let write_file ~on path content =
+  let parent = Path.dirname path in
+  let* () = create_directory ~on parent in
   perform @@ Yocaml_write_file (on, path, content)
 
 let read_directory ~on ?(only = `Both) ?(where = fun _ -> true) path =
@@ -191,3 +219,40 @@ let mtime ~on path =
     else return t
   in
   aux path
+
+let get_basename source =
+  match Path.basename source with
+  | None -> raise (Invalid_path (`Source, source))
+  | Some fragment -> return fragment
+
+let copy_file into source =
+  let* fragment = get_basename source in
+  let dest = Path.(into / fragment) in
+  let* content = read_file ~on:`Source source in
+  write_file ~on:`Target dest content
+
+let copy_recursive ?new_name ~into source =
+  let rec aux ?new_name into source =
+    let* is_dir = is_directory ~on:`Target into in
+    if is_dir then
+      let* source_is_file = is_file ~on:`Source source in
+      if source_is_file then copy_file into source
+      else
+        let* source_is_directory = is_directory ~on:`Source source in
+        if source_is_directory then
+          let* name = get_basename source in
+          let name = Option.value new_name ~default:name in
+          let name = Path.(into / name) in
+          let* () = create_directory ~on:`Target name in
+          let* children = read_directory ~on:`Source ~only:`Both source in
+          let* _ = List.traverse (fun child -> aux name child) children in
+          return ()
+        else raise (File_not_exists (`Source, source))
+    else
+      let* is_file = is_file ~on:`Target into in
+      if is_file then raise (Directory_is_a_file (`Target, into))
+      else
+        let* () = create_directory ~on:`Target into in
+        aux ?new_name into source
+  in
+  aux ?new_name into source

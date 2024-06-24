@@ -18,14 +18,14 @@
     point for a {b construction rule}. In general, a chain of actions maitizes a
     cache and is used in this way:
 
-    {[
+    {eof@ocaml skip[
       let open Eff.Infix in
       restore_cache ~on path_of_cache
       >>= action_a
       >>= action_b
       >>= action_c
       >>= store_cache ~on path_of_cache
-    ]} *)
+    ]eof} *)
 
 type t = Cache.t -> Cache.t Eff.t
 (** As it is necessary to maintain the cache during the various artifact
@@ -56,6 +56,14 @@ val copy_file : ?new_name:Path.fragment -> into:Path.t -> Path.t -> t
 (** [copy_file ?new_name ~into:target source cache] Copies the [source] file to
     the [target] directory (potentially giving it a new name), taking account of
     dependencies. The copy is obviously static. *)
+
+val copy_directory : ?new_name:Path.fragment -> into:Path.t -> Path.t -> t
+(** [copy_directory ?new_name ~into:target source cache] Copies recursively the
+    [source] file to the [target] directory (potentially giving it a new name),
+    taking account of dependencies. The copy is obviously static.
+
+    {b Warning} The use of this action is relatively optimistic. If only one
+    child has been modified, the entire copy will be replayed. *)
 
 val batch :
      ?only:[ `Files | `Directories | `Both ]
