@@ -32,21 +32,25 @@ let need_update cache has_dynamic_deps deps target =
                event of corruption or concurrent access. So it's a loss that's
                considered acceptable... sorry about that, but I'm not sure
                there's a "panacea". *)
-            let+ () = Lexicon.target_not_in_cache target in
+            let+ () =
+              Eff.log ~level:`Debug @@ Lexicon.target_not_in_cache target
+            in
             (true, deps)
         | Some (_, dynamic_deps) when not (Deps.is_empty dynamic_deps) ->
             (* If an entry exists in the cache and the target is attached to
                dynamic dependencies, try to rebuild the file taking into account
                the dynamic dependencies. *)
-            let+ () = Lexicon.found_dynamic_dependencies target in
+            let+ () =
+              Eff.log ~level:`Debug @@ Lexicon.found_dynamic_dependencies target
+            in
             (false, Deps.concat deps dynamic_deps)
         | _ -> Eff.return (false, deps)
       else Eff.return (false, deps)
     in
     if need_shortcut then Eff.return Update
     else
-      let+ mtime_target = Eff.mtime ~on:`Target target
-      and+ mtime_deps = Deps.get_mtimes deps in
+      let* mtime_target = Eff.mtime ~on:`Target target in
+      let+ mtime_deps = Deps.get_mtimes deps in
       if List.exists (fun mtime_dep -> mtime_dep >= mtime_target) mtime_deps
       then Update
       else Nothing
@@ -55,38 +59,46 @@ let need_update cache has_dynamic_deps deps target =
 let perform target task when_creation when_update cache =
   let open Eff.Syntax in
   let deps, eff, has_dynamic_deps = Task.destruct task in
+
   let* interaction = need_update cache has_dynamic_deps deps target in
   match interaction with
   | Nothing ->
-      let+ () = Lexicon.target_already_up_to_date target in
+      let+ () =
+        Eff.log ~level:`Debug @@ Lexicon.target_already_up_to_date target
+      in
       cache
   | Create ->
-      let* () = Lexicon.target_need_to_be_built target in
+      let* () =
+        Eff.log ~level:`Debug @@ Lexicon.target_need_to_be_built target
+      in
       let+ cache = when_creation target cache eff in
       cache
   | Update ->
-      let* () = Lexicon.target_exists target in
+      let* () = Eff.log ~level:`Debug @@ Lexicon.target_exists target in
       let+ cache = when_update target cache eff in
       cache
 
 let perform_writing target cache fc hc dynamic_deps =
   let open Eff.Syntax in
-  let* () = Lexicon.target_is_written target in
+  let* () = Eff.log ~level:`Debug @@ Lexicon.target_is_written target in
   let* () = Eff.write_file ~on:`Target target fc in
-  let+ () = Lexicon.target_was_written target in
+  let+ () = Eff.log ~level:`Info @@ Lexicon.target_was_written target in
   Cache.update ~deps:dynamic_deps cache target hc
 
 let perform_update target cache eff =
   let open Eff.Syntax in
-  let* () = Lexicon.target_exists target in
   let* fc, dynamic_deps = eff () in
   let* hc = Eff.hash fc in
   match Cache.get cache target with
   | Some (pred_h, _) when String.equal hc pred_h ->
-      let+ () = Lexicon.target_hash_is_unchanged target in
+      let+ () =
+        Eff.log ~level:`Debug @@ Lexicon.target_hash_is_unchanged target
+      in
       Cache.update ~deps:dynamic_deps cache target pred_h
   | _ ->
-      let* () = Lexicon.target_hash_is_changed target in
+      let* () =
+        Eff.log ~level:`Debug @@ Lexicon.target_hash_is_changed target
+      in
       perform_writing target cache fc hc dynamic_deps
 
 let write_dynamic_file target task cache =
@@ -141,15 +153,17 @@ let restore_cache ?(on = `Source) path =
     let sexp = Sexp.Canonical.from_string cache_content in
     match sexp with
     | Error _ ->
-        let+ () = Lexicon.cache_invalid_csexp path in
+        let+ () = Eff.log ~level:`Warning @@ Lexicon.cache_invalid_csexp path in
         Cache.empty
     | Ok sexp ->
         Result.fold
           ~ok:(fun cache ->
-            let+ () = Lexicon.cache_restored path in
+            let+ () = Eff.log ~level:`Debug @@ Lexicon.cache_restored path in
             cache)
           ~error:(fun _ ->
-            let+ () = Lexicon.cache_invalid_repr path in
+            let+ () =
+              Eff.log ~level:`Warning @@ Lexicon.cache_invalid_repr path
+            in
             Cache.empty)
           (Cache.from_sexp sexp)
   else Eff.return Cache.empty
@@ -158,4 +172,4 @@ let store_cache ?(on = `Source) path cache =
   let open Eff.Syntax in
   let sexp_str = cache |> Cache.to_sexp |> Sexp.Canonical.to_string in
   let* () = Eff.write_file ~on path sexp_str in
-  Lexicon.cache_stored path
+  Eff.log ~level:`Debug @@ Lexicon.cache_stored path
