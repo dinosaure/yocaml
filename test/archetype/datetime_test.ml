@@ -370,6 +370,36 @@ let test_datetime_comparison_7 =
       in
       check Testable.(validated_value bool) "should be equal" expected computed)
 
+let test_datetime_pp_rfc822_1 =
+  let open Alcotest in
+  test_case "pretty-print a date according rfc822 specification 1" `Quick
+    (fun () ->
+      let open Yocaml.Archetype in
+      let expected = Ok "Wed, 02 Oct 2002 00:00:00 GMT"
+      and computed =
+        Result.map
+          (Format.asprintf "%a" (Datetime.pp_rfc822 ()))
+          (Datetime.validate @@ Yocaml.Data.string "2002/10/02")
+      in
+      check
+        (Testable.validated_value string)
+        "should be equal" expected computed)
+
+let test_datetime_pp_rfc3339_1 =
+  let open Alcotest in
+  test_case "pretty-print a date according rfc3339 specification 1" `Quick
+    (fun () ->
+      let open Yocaml.Archetype in
+      let expected = Ok "2002-10-02T21:13:54Z"
+      and computed =
+        Result.map
+          (Format.asprintf "%a" (Datetime.pp_rfc3339 ()))
+          (Datetime.validate @@ Yocaml.Data.string "2002/10/02 21:13:54")
+      in
+      check
+        (Testable.validated_value string)
+        "should be equal" expected computed)
+
 let cases =
   ( "Yocaml.Archetype.Date"
   , [
@@ -395,4 +425,6 @@ let cases =
     ; test_datetime_comparison_5
     ; test_datetime_comparison_6
     ; test_datetime_comparison_7
+    ; test_datetime_pp_rfc822_1
+    ; test_datetime_pp_rfc3339_1
     ] )

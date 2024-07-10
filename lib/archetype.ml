@@ -87,7 +87,7 @@ module Datetime = struct
     let hour, min, sec = time in
     { year; month; day; hour; min; sec }
 
-  let dummy_date = make_raw ~time:(0, 0, 0) ~year:1977 ~month:Jan ~day:1 ()
+  let dummy = make_raw ~time:(0, 0, 0) ~year:1970 ~month:Jan ~day:1 ()
   let ( let* ) = Result.bind
 
   let make ?(time = (0, 0, 0)) ~year ~month ~day () =
@@ -223,8 +223,20 @@ module Datetime = struct
     let index = (c_code + y_code + m_code + day) mod 7 in
     [| Sun; Mon; Tue; Wed; Thu; Fri; Sat |].(index)
 
+  let pp_rfc822 ?(tz = "gmt") () ppf dt =
+    let tz = String.uppercase_ascii tz in
+    let dow = dt |> day_of_week |> dow_to_string |> String.capitalize_ascii in
+    let mon = dt.month |> month_to_string |> String.capitalize_ascii in
+    Format.fprintf ppf "%s, %02d %s %04d %a %s" dow dt.day mon dt.year pp_time
+      dt tz
+
+  let pp_rfc3339 ?(tz = "Z") () ppf dt =
+    let mon = dt.month |> month_to_int in
+    Format.fprintf ppf "%04d-%02d-%02dT%02d:%02d:%02d%s" dt.year mon dt.day
+      dt.hour dt.min dt.sec tz
+
   let normalize ({ year; month; day; hour; min; sec } as dt) =
-    let has_time = not (Int.equal (compare_time dt dummy_date) 0) in
+    let has_time = not (Int.equal (compare_time dt dummy) 0) in
     let datetime_repr = Format.asprintf "%a" pp dt in
     let date_repr = Format.asprintf "%a" pp_date dt in
     let time_repr = Format.asprintf "%a" pp_time dt in
@@ -284,6 +296,10 @@ module Page = struct
       method tags = tags
     end
 
+  let title p = p#page_title
+  let charset p = p#page_charset
+  let description p = p#description
+  let tags p = p#tags
   let neutral = Result.ok @@ new page ()
 
   let validate_page fields =
@@ -361,6 +377,11 @@ module Article = struct
       method date = date
     end
 
+  let page a = (a :> Page.t)
+  let title a = a#title
+  let synopsis a = a#synopsis
+  let date a = a#date
+
   let neutral =
     Data.Validation.fail_with ~given:"null" "Cannot be null"
     |> Result.map_error (fun error ->
@@ -402,7 +423,7 @@ module Articles = struct
       method articles = articles
     end
 
-  let from_page articles page = new articles page articles
+  let from_page = Task.lift (fun (page, articles) -> new articles page articles)
 
   let sort_by_date ?(increasing = false) articles =
     List.sort
@@ -411,9 +432,9 @@ module Articles = struct
         if increasing then r else ~-r)
       articles
 
-  let compute_index (module P : Required.DATA_PROVIDER) ?increasing
+  let fetch (module P : Required.DATA_PROVIDER) ?increasing
       ?(filter = fun x -> x) ?(on = `Source) ~where ~compute_link path =
-    Task.from_effect (fun page ->
+    Task.from_effect (fun () ->
         let open Eff in
         let* files = read_directory ~on ~only:`Files ~where path in
         let+ articles =
@@ -426,8 +447,15 @@ module Articles = struct
               (url, metadata))
             files
         in
-        let articles = articles |> sort_by_date ?increasing |> filter in
-        from_page articles page)
+        articles |> sort_by_date ?increasing |> filter)
+
+  let compute_index (module P : Required.DATA_PROVIDER) ?increasing
+      ?(filter = fun x -> x) ?(on = `Source) ~where ~compute_link path =
+    let open Task in
+    (fun x -> (x, ()))
+    |>> second
+          (fetch (module P) ?increasing ~filter ~on ~where ~compute_link path)
+    >>> from_page
 
   let normalize_article (ident, article) =
     let open Data in

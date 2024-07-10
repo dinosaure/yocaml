@@ -113,6 +113,15 @@ module Target = struct
   (* Articles will be generated in [_build/articles]. *)
   let articles = Path.(target_root / "articles")
 
+  (* Path for RSS1 feed. *)
+  let rss1 = Path.(target_root / "rss1.xml")
+
+  (* Path for RSS2 feed. *)
+  let rss2 = Path.(target_root / "rss2.xml")
+
+  (* Path for Atom feed. *)
+  let atom = Path.(target_root / "atom.xml")
+
   (* As we often process markdown files that we want to transform into html
      files, this function acts as a helper to quickly relocate a given file name
      in a given directory and change its extension to [.html]. *)
@@ -265,6 +274,7 @@ let process_index =
   let file = Source.index in
   let file_target = Target.(as_html pages file) in
 
+  let open Task in
   (* Next, you need to read all the articles in the [articles/] directory.
      Fortunately, the [Archetype.Articles] module provides a task (which acts on
      metadata) to transform page metadata into article metadata. The function
@@ -285,10 +295,11 @@ let process_index =
       ~compute_link:(Target.as_html @@ Path.abs [ "articles" ])
       Source.articles
   in
+
   (* Now that we have a task that allows us to process our metadata and read
      our articles, the rest of the pipeline is quite similar to what we were
      doing before. *)
-  let open Task in
+
   (* As for Pages and articles, we can write the file using the
      [write_static_file] action, which will execute a task. We use
      [write_static_file] because in our example, constructing a page involves no
@@ -330,6 +341,74 @@ let process_index =
     (* We can finish by dropping our metadata! *)
     >>> drop_first ())
 
+(* Now we're going to create the feeds. For the flex, we're going to create 3,
+   Rss1, Rss2 and Atom (in real life, this isn't very useful :D).
+
+   First, we'll describe some of the variables we'll be using in our three
+   feeds:
+*)
+
+let feed_title = "My simple blog"
+let site_url = "https://yocaml.example"
+let feed_description = "My personnal simple blog written using YOCaml"
+
+(* Next, we're going to use an arrow very similar to [compute_index] (which is
+   also used in the [compute_index] function), the [fetch] arrow, which allows
+   us to fetch all our articles, without having to worry about injecting them
+   into a page. Here we only want to use the list of articles to build feeds. So
+   there's no need for page generation logic etc.
+
+
+   As we know that we'll want to track the articles (and the binary) every time,
+   we can pre-compose our arrow with a watcher.
+*)
+
+let fetch_articles =
+  let open Task in
+  Pipeline.track_files [ Source.binary; Source.articles ]
+  >>> Archetype.Articles.fetch
+        (module Yocaml_yaml)
+        ~where:(Path.has_extension "md")
+        ~compute_link:(Target.as_html @@ Path.abs [ "articles" ])
+        Source.articles
+
+(* Now we'll simply use the different arrows offered by the Yocaml_syndication
+   plugin. Now we're simply going to use the different arrows offered by the
+   Yocaml_syndication plugin in the action of writing a static file! *)
+
+let rss1 =
+  let open Task in
+  Action.write_static_file Target.rss1
+    (fetch_articles
+    >>> Yocaml_syndication.Rss1.from_articles ~title:feed_title ~site_url
+          ~description:feed_description ~feed_url:"http://mysite.com/rss1.xml"
+          ())
+
+(* Now we can repeat the same process for Rss2. *)
+
+let rss2 =
+  let open Task in
+  Action.write_static_file Target.rss2
+    (fetch_articles
+    >>> Yocaml_syndication.Rss2.from_articles ~title:feed_title ~site_url
+          ~description:feed_description ~feed_url:"http://mysite.com/rss2.xml"
+          ())
+
+(* And finally Atom, which requires a little more plumbing (because it's a more
+   flexible syndication format). *)
+
+let atom =
+  let open Task in
+  let authors =
+    Yocaml.Nel.singleton
+    @@ Yocaml_syndication.Person.make "The YOCaml community group"
+  in
+  Action.write_static_file Target.atom
+    (fetch_articles
+    >>> Yocaml_syndication.Atom.(
+          from_articles ~site_url ~authors ~title:(text feed_title)
+            ~feed_url:"http://mysite.com/atom.xml" ()))
+
 (* Now, we can group all our processes together! Each Action (process_xxxx) is
    actually a function that takes a cache as an argument and returns an effect
    that acts on the cache. But the cache is hidden in our actions because the
@@ -354,6 +433,9 @@ let process_all () =
   >>= process_pages
   >>= process_articles
   >>= process_index
+  >>= rss1
+  >>= rss2
+  >>= atom
   (* Once we have processed all our files, our cache will be passed from action
      to action, being updated. So, we can save our cache to be used in the next
      run of our generator! *)
@@ -380,10 +462,6 @@ let () =
   | _ ->
       (* If no arguments (or the wrong values) are passed, the site is built *)
       Yocaml_unix.run process_all
-
-(* let () = *)
-(*   let () = Yocaml_unix.run process_all in *)
-(*   Yocaml_unix.serve ~target:Target.target_root ~port:8000 process_all *)
 
 (* And there you have it, our blog is now finished. To be able to build your
    site from scratch, with even more flexibility, we invite you to read through
