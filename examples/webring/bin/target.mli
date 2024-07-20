@@ -14,17 +14,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-module Lang = Lang
-module Tz = Tz
-module Datetime = Datetime
-module Text_input = Text_input
-module Media_type = Media_type
-module Person = Person
-module Category = Category
-module Generator = Generator
-module Xml = Xml
-module Rss1 = Rss1
-module Rss2 = Rss2
-module Rss = Rss2
-module Atom = Atom
-module Opml = Opml
+val root : Yocaml.Path.t
+val cache : Yocaml.Path.t
+val opml : Yocaml.Path.t
+val as_html : ?into:Yocaml.Path.t -> Yocaml.Path.t -> Yocaml.Path.t

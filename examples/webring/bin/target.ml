@@ -14,17 +14,13 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-module Lang = Lang
-module Tz = Tz
-module Datetime = Datetime
-module Text_input = Text_input
-module Media_type = Media_type
-module Person = Person
-module Category = Category
-module Generator = Generator
-module Xml = Xml
-module Rss1 = Rss1
-module Rss2 = Rss2
-module Rss = Rss2
-module Atom = Atom
-module Opml = Opml
+open Yocaml
+
+let target_root = Path.(Source.root / "_build")
+let cache = Path.(target_root / "cache")
+let opml = Path.(target_root / "ring.opml")
+
+let as_html ?(into = target_root) file =
+  file |> Path.move ~into |> Path.change_extension "html"
+
+let root = target_root

@@ -14,17 +14,13 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-module Lang = Lang
-module Tz = Tz
-module Datetime = Datetime
-module Text_input = Text_input
-module Media_type = Media_type
-module Person = Person
-module Category = Category
-module Generator = Generator
-module Xml = Xml
-module Rss1 = Rss1
-module Rss2 = Rss2
-module Rss = Rss2
-module Atom = Atom
-module Opml = Opml
+open Yocaml
+
+let root = Path.rel [ "examples"; "webring" ]
+let source_root = root
+let css = Path.(source_root / "css")
+let index = Path.(source_root / "index.md")
+let members = Path.(source_root / "members.yml")
+let templates = Path.(source_root / "templates")
+let template file = Path.(templates / file)
+let binary = Path.rel [ Sys.argv.(0) ]
