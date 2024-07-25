@@ -14,16 +14,22 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-(** A very simple server for locally serving a project built with YOcaml on top
-    of Eio. *)
+(** Description of common errors in the various runtimes (at least shared by
+    Unix and Eio). *)
 
-val run :
-     ?custom_error_handler:
-       (Format.formatter -> Yocaml.Data.Validation.custom_error -> unit)
-  -> Yocaml.Path.t
-  -> int
-  -> (unit -> unit Yocaml.Eff.t)
-  -> Eio_unix.Stdenv.base
-  -> 'a
-(** [run ?custom_error_handler target port program] describes an EIO program
-    that serve statically [target] on listening [port]. *)
+(** {1 Types} *)
+
+(** Describes common errors that can occur during the execution of a program in
+    a specific runtime. *)
+type common =
+  | Unable_to_write_file of Yocaml.Path.t * string
+  | Unable_to_create_directory of Yocaml.Path.t
+  | Unable_to_read_file of Yocaml.Path.t
+  | Unable_to_read_directory of Yocaml.Path.t
+  | Unable_to_read_mtime of Yocaml.Path.t
+  | Unable_to_perform_command of string * exn
+
+(** {1 Utils} *)
+
+val common_to_string : common -> string
+(** String representation of a {!type:common}. *)

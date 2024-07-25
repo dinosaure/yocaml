@@ -32,19 +32,40 @@
    (utop :with-dev-setup)))
 
  (package
+  (name yocaml_runtime)
+  (synopsis "Tool for describing runtimes (using Logs and Digestif)")
+  (depends
+   (ocaml (>= 5.1.1))
+   (dune (>= 3.0.0))
+   (yocaml (= :version))
+   (cohttp (>= 5.3.11))
+   (magic-mime (>= 1.3.1))
+   (logs (>= 0.7.0))
+   (fmt (>= 0.9.0))
+   (digestif (>= 1.2.0))))
+
+ (package
    (name yocaml_eio)
-   (synopsis "The Eio runtime for using YOCaml")
+   (synopsis "The Eio runtime YOCaml")
    (depends
     (ocaml (>= 5.1.1))
     (dune (>= 3.0.0))
     (yocaml (= :version))
-    (logs (>= 0.7.0))
-    (fmt (>= 0.9.0))
-    (magic-mime (>= 1.3.1))
-    (digestif (>= 1.2.0))
+    (yocaml_runtime (= :version))
     (eio (= 1.1))
     (eio_main (= 1.1))
     (cohttp-eio (= 6.0.0~beta2))))
+
+(package
+  (name yocaml_unix)
+  (synopsis "The Unix runtime for YOCaml")
+  (depends
+   (ocaml (>= 5.1.1))
+   (dune (>= 3.0.0))
+   (cohttp-lwt-unix (>= 5.3.11))
+   (conduit-lwt-unix (>= 6.2.3))
+   (yocaml (= :version))
+   (yocaml_runtime (= :version))))
 
 (package
   (name yocaml_yaml)

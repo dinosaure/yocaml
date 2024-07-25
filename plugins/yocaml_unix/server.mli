@@ -15,7 +15,7 @@
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
 (** A very simple server for locally serving a project built with YOcaml on top
-    of Eio. *)
+    of Unix. *)
 
 val run :
      ?custom_error_handler:
@@ -23,7 +23,6 @@ val run :
   -> Yocaml.Path.t
   -> int
   -> (unit -> unit Yocaml.Eff.t)
-  -> Eio_unix.Stdenv.base
-  -> 'a
-(** [run ?custom_error_handler target port program] describes an EIO program
+  -> unit
+(** [run ?custom_error_handler target port program] describes an lwt program
     that serve statically [target] on listening [port]. *)
