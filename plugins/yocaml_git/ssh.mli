@@ -1,5 +1,5 @@
 (* YOCaml a static blog generator.
-   Copyright (C) 2024 The Funkyworkers and The YOCaml's developers
+   Copyright (C) 2024 Romain Calascibetta
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,17 +14,6 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-module Make_with_target (_ : sig
-  val source : Yocaml.Path.t
-  val target : Yocaml.Path.t
-end) : sig
-  val target : Yocaml.Path.t
-  val process_all : unit -> unit Yocaml.Eff.t
-end
+(** Allowing Git authentication by SSH. *)
 
-module Make (_ : sig
-  val source : Yocaml.Path.t
-end) : sig
-  val target : Yocaml.Path.t
-  val process_all : unit -> unit Yocaml.Eff.t
-end
+val context : unit -> Mimic.ctx Lwt.t
