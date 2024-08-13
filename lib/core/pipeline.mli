@@ -32,6 +32,11 @@ val track_files : Path.t list -> (unit, unit) Task.t
 val read_file : Path.t -> (unit, string) Task.t
 (** [read_file path] is a task that read the content of a file. *)
 
+val pipe : ('a -> 'b -> 'c) -> (unit, 'b) Task.t -> ('a, 'c) Task.t
+(** [pipe f arr] will pipe an arrow applying [f previous_result result_of arr].
+    For example, it can be used for piping files content :
+    [pipe (fun x y -> x ^ "\n" ^ y) (read_file path)]. *)
+
 val read_file_as_metadata :
      (module Required.DATA_PROVIDER)
   -> (module Required.DATA_READABLE with type t = 'a)
@@ -55,6 +60,10 @@ val read_file_with_metadata :
     validates the metadata according to a
     {!module-type:Yocaml.Required.DATA_PROVIDER}, [P], using the description
     provided by [R] of type {!module-type:Yocaml.Required.DATA_READABLE}. *)
+
+val pipe_files : ?seperator:string -> Path.t list -> (unit, string) Task.t
+(** [pipe_files ?seperator list_of_path] build a task that pipe file toegether
+    using [seperator] as a separator. *)
 
 val exec_cmd : ?is_success:(int -> bool) -> Cmd.t -> (unit, unit) Task.t
 (** [exec_cmd ?is_success cmd] is a task that performs a shell command
