@@ -14,13 +14,13 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-(** Plugin for describing metadata with Yaml, based on the
-    {{:https://ocaml.org/p/yaml/latest} Yaml package}. *)
+(** Plugin for describing metadata with {{:https://toml.io/en/} TOML}, based on
+    the {{:https://ocaml.org/p/otoml/latest} OTOML package}. *)
 
 (** @inline *)
 include
   Yocaml.Required.DATA_READER
-    with type t = Yaml.value
+    with type t = Otoml.t
      and type 'a eff := 'a Yocaml.Eff.t
      and type ('a, 'b) arr := ('a, 'b) Yocaml.Task.t
      and type extraction_strategy := Yocaml.Metadata.extraction_strategy

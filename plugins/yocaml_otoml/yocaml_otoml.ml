@@ -15,33 +15,31 @@
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
 module Data_provider = struct
-  type t = Yaml.value
-
-  let normalize_number x =
-    (* Projecting a potential float into an integer may seem a little radical
-       (especially as the function is far from trivial, from my point of view),
-       but data validation has been relaxed to accept, when a float is expected,
-       an integer. *)
-    match Float.classify_float (fst (Float.modf x)) with
-    | Float.FP_zero -> Yocaml.Data.int (int_of_float x)
-    | _ -> Yocaml.Data.float x
+  type t = Otoml.t
 
   let rec normalize = function
-    | `Null -> Yocaml.Data.null
-    | `Bool b -> Yocaml.Data.bool b
-    | `Float f -> normalize_number f
-    | `String s -> Yocaml.Data.string s
-    | `A arr -> Yocaml.Data.list @@ List.map normalize arr
-    | `O fields ->
-        Yocaml.Data.record @@ List.map (fun (k, v) -> (k, normalize v)) fields
+    | Otoml.TomlBoolean b -> Yocaml.Data.bool b
+    | TomlString str -> Yocaml.Data.string str
+    | TomlInteger i -> Yocaml.Data.int i
+    | TomlFloat fl -> Yocaml.Data.float fl
+    | TomlArray arr | TomlTableArray arr ->
+        arr |> List.map normalize |> Yocaml.Data.list
+    | TomlTable fields | TomlInlineTable fields ->
+        fields
+        |> List.map (fun (k, v) -> (k, normalize v))
+        |> Yocaml.Data.record
+    (* Treat datetime related fields as regular strings. *)
+    | TomlOffsetDateTime str
+    | TomlLocalDateTime str
+    | TomlLocalDate str
+    | TomlLocalTime str ->
+        Yocaml.Data.string str
 
   let from_string str =
     str
-    |> Yaml.of_string
+    |> Otoml.Parser.from_string_result
     |> Result.map_error (fun error ->
-           let message = match error with `Msg msg -> msg in
-           let given = str in
-           let message = "Yaml: " ^ message in
+           let given = str and message = "Toml: " ^ error in
            Yocaml.Required.Parsing_error { given; message })
 end
 

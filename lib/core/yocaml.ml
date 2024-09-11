@@ -30,6 +30,7 @@ module Diagnostic = Diagnostic
 module Cmd = Cmd
 module Slug = Slug
 module Reader = Reader
+module Make = Make
 
 module Sexp = struct
   include Sexp

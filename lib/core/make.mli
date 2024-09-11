@@ -14,13 +14,18 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. *)
 
-(** Plugin for describing metadata with Yaml, based on the
-    {{:https://ocaml.org/p/yaml/latest} Yaml package}. *)
+(** A set of functors designed to automate the construction of boring and
+    repetitive modules. *)
 
-(** @inline *)
-include
-  Yocaml.Required.DATA_READER
-    with type t = Yaml.value
-     and type 'a eff := 'a Yocaml.Eff.t
-     and type ('a, 'b) arr := ('a, 'b) Yocaml.Task.t
-     and type extraction_strategy := Yocaml.Metadata.extraction_strategy
+(** A Runtime is an execution context (ie, Unix or Git). They describe the entry
+    point of a YOCaml program and abstract the file system. *)
+module Runtime (Runtime : Required.RUNTIME) :
+  Required.RUNNER with type 'a t := 'a Eff.t and module Runtime := Runtime
+
+(** Builds metadata reader functions based on a data provider. *)
+module Data_reader (DP : Required.DATA_PROVIDER) :
+  Required.DATA_READER
+    with type t = DP.t
+     and type 'a eff := 'a Eff.t
+     and type ('a, 'b) arr := ('a, 'b) Task.t
+     and type extraction_strategy := Metadata.extraction_strategy
