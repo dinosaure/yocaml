@@ -138,7 +138,7 @@
    (mimic (>= 0.0.9))
    (cstruct (>= 6.2.0))
    (git-kv (>= 0.0.5))
-   (git-unix (>= 3.16.1))
+   (git-net (>= 0.0.5))
    (mirage-clock (>= 4.2.0))
    (yocaml (= :version))
    (yocaml_runtime (= :version))))
